@@ -1,0 +1,182 @@
+---
+title: "NPRC Project Update"
+author: "Shaurita Hutchins"
+date: "`r Sys.Date()`"
+output: mizzourahmd::mizzou_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, comment = "#>")
+```
+
+
+## Data Preparation
+
+In order to use our data in downstream applications such as Truffle/Structure and the pedigree reconstruction, vcf files from each primate research center were combined into one file (for faster data annotation - `bcftools merge` was used). That combined file is named `all_nprcs.vcf.gz`. The next step was to remove unneded annotation from the files. This step was completed using bcftools.
+
+```{bash, eval=FALSE}
+DATA=/ddn/home5/r2295/projects/nprc-project/data
+
+VCF=${DATA}/all_nprcs.vcf.gz
+
+IDS=INFO/ANN,INFO/CADD_PH,INFO/CADD_RS,INFO/CCDS,INFO/ENC,INFO/ENCDNA_CT,INFO/ENCDNA_SC,
+INFO/ENCSEG_CT,INFO/ENCSEG_NM,INFO/ENCTFBS_CL,INFO/ENCTFBS_SC,INFO/ENCTFBS_TF,INFO/ENN,
+INFO/ERBCTA_CT,INFO/ERBCTA_NM,INFO/ERBCTA_SC,INFO/ERBSEG_CT,INFO/ERBSEG_NM,INFO/ERBSEG_SC,
+INFO/ERBSUM_NM,INFO/ERBSUM_SC,INFO/ERBTFBS_PB,INFO/ERBTFBS_TF,INFO/FC,INFO/FE,INFO/FS_EN,
+INFO/FS_NS,INFO/FS_SC,INFO/FS_SN,INFO/FS_TG,INFO/FS_US,INFO/FS_WS,INFO/GRASP_AN,INFO/GRASP_P,
+INFO/GRASP_PH,INFO/GRASP_PL,INFO/GRASP_PMID,INFO/GRASP_RS,INFO/LF,INFO/LOF,INFO/NC,INFO/NE,
+INFO/NF,INFO/NG,INFO/NH,INFO/NJ,INFO/NK,INFO/NL,INFO/NM,INFO/NMD,INFO/OMIMC,INFO/OMIMD,
+INFO/OMIMM,INFO/OMIMMUS,INFO/OMIMN,INFO/OMIMS,INFO/OMIMT,INFO/OREGANNO_PMID,INFO/OREGANNO_TYPE,I
+NFO/PC_PL,INFO/PC_PR,INFO/PC_VB,INFO/PP_PL,INFO/PP_PR,INFO/PP_VB,INFO/RDB_MF,INFO/RDB_WS,
+INFO/RFG,INFO/RSID,INFO/SCSNV_ADA,INFO/SCSNV_RS,INFO/SD,INFO/SF,INFO/SM,INFO/SP_SC,
+INFO/SX,INFO/TMAF,INFO/CLN_ALLELE,INFO/CLN_ALLELEID,INFO/CLN_DBVARID,INFO/CLN_DISDB,
+INFO/CLN_DISDBINCL,INFO/CLN_DN,INFO/CLN_DNINCL,INFO/CLN_GENEINFO,INFO/CLN_HGVS,INFO/CLN_MC,
+INFO/CLN_ORIGIN,INFO/CLN_REVSTAT,INFO/CLN_RS,INFO/CLN_SIG,INFO/CLN_SIGINCL,INFO/CLN_SSR,
+INFO/CLN_VC,INFO/CLN_VCSO,INFO/CLN_VI
+
+OUTFILE=${DATA}/all_nprcs_rminfo.vcf.gz
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+bcftools annotate $VCF -x $IDS -O z -o $OUTFILE --threads 40
+
+bcftools index $OUTFILE --threads 40
+```
+
+After unnecessary information (`INFO/ID`) was removed, the file shrunk by `6 GB` which should aid in manageability. The resulting file was `all_nprcs_rminfo.vcf.gz`. Based on Tulane's paper on pedigree reconstruction, Chinese-origin animals, exome data, and female animals should be removed from the dataset. 
+
+
+From this file, three additional files were generated to *(1)* test whether exome data was influencing the results of Truffle, *(2)* remove duplicate marker positions for the pedigree reconstruction pipeline, and *(3)* create a biallelic file for use with Truffle.
+
+### Removing Samples With Exomes
+
+160 of our samples were exome only samples across the data sets. That means that 578 samples have at least their whole genome sequenced.
+
+```{bash, eval=FALSE}
+DATA=/ddn/home5/r2295/projects/nprc-project/data
+VCF=${DATA}/all_nprcs_rminfo.vcf.gz
+OUTFILE=${DATA}/all_nprcs_rminfo_noexome.vcf.gz
+SAMPLES_FILE=/ddn/home5/r2295/projects/nprc-project/data/metadata/only_exome_ids.txt
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+bcftools view $VCF -S ^$SAMPLES_FILE -O z -o $OUTFILE --threads 70
+
+bcftools index $OUTFILE --threads 70
+```
+
+### Keep only Males and Indian Origin Animals
+
+
+```{bash, eval=FALSE}
+DATA=/ddn/home5/r2295/projects/nprc-project/data
+VCF=${DATA}/all_nprcs_rminfo.vcf.gz
+OUTFILE=${DATA}/all_nprcs_rminfo_noexome.vcf.gz
+SAMPLES_FILE=/ddn/home5/r2295/projects/nprc-project/data/metadata/only_exome_ids.txt
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+bcftools view $VCF -S $SAMPLES_FILE -O z -o $OUTFILE --threads 70
+
+bcftools index $OUTFILE --threads 70
+```
+
+
+### Removing Duplicate Markers
+
+This is also considering a normalization step that may be necessary for our data to properly run through beagle. 
+
+```{bash, eval=FALSE}
+DIR=/ddn/home5/r2295/projects/nprc-project/data
+infile=${DIR}/all_nprcs_rminfo.vcf.gz
+outfile=${DIR}/all_nprcs_rminfo_norm.vcf.gz
+fasta=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/ref_genome/1_Mmul_8.0.1.fasta
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+# Normalize the vcf file by checking snps with the ref genome
+# and removing both snp & indel duplicates
+bcftools norm $infile -c s --rm-dup both -f $fasta -O z -o $outfile --threads 85
+
+# Index the vcf file
+bcftools index $outfile --threads 85
+```
+
+### Creating A Biallelic VCF
+
+In the Truffle paper, it explicitly states using biallelic data. Truffle does not mention any diminished results due to the inclusion of exome data. 
+
+```{bash, eval=FALSE}
+DATA=/ddn/home5/r2295/projects/nprc-project/data
+VCF=${DATA}/all_nprcs_rminfo.vcf.gz
+OUTFILE=${DATA}/all_nprcs_rminfo_biallelic.vcf.gz
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+bcftools view $VCF -O z -o $OUTFILE -m2 -M2 -v snps,indels --threads 45
+
+# Index the vcf file
+bcftools index $OUTFILE --threads 45
+```
+
+## A Case Study
+
+In order to test out whether our data & parameters are accurate (for Primus, Beagle - and ultimately ersa, germline), I'm currently using the TNPRC (Tulane) dataset to recreate their results. 
+
+
+### A Master PBS Script
+
+```bash
+#!/bin/bash
+# ------------------------------------------------------------------
+# [Vallender Lab] master
+#          Run jobs and wait for certain jobs to finish.
+
+# submit job1a with no dependencies
+job1a=$(qsub 1a_plink_prep.pbs)
+echo $job1a
+
+# submit job1b with no dependencies
+job1b=$(qsub 1b_beagle.pbs)
+echo $job1b
+ 
+# submit job2a only after job1a has finished
+job2=$(qsub -W depend=afterok:$job1a 2a_primus.pbs)
+echo $job2a
+
+# submit job2b only after job1b has finished
+job2b=$(qsub -W depend=afterok:$job1b 2b_germline.pbs)
+echo $job2b
+ 
+# submit job 3b only after jobs 1b and 2b have finished
+job3b=$(qsub -W depend=afterok:$job1b:$job2b 3b_ersa.pbs)
+echo $job3b
+
+# submit job 4 only after all other jobs are done
+job4=$(qsub -W depend=afterok:$job1a:$job1b:$job2a:$job2b:$job3b 4_padre.pbs)
+echo $job4
+```
+
+## Results
+
+### Truffle Results
+
+#### Biallelic vs NonBiallelic
+
+#### Exome Included vs No Exome
+
+#### Biallelic vs Normalized VCF
+
+## Discussion
+
+There are some limitations and notable takeaways too.
+
+## Questions
+
+- Are there Tulane animals or sequences currently not on mGAP?
+
