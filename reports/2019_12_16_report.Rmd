@@ -1,0 +1,32 @@
+---
+title: "NPRC Project - Plink PCA"
+author: "Shaurita Hutchins"
+date: "`r Sys.Date()`"
+output: mizzourahmd::mizzou_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, comment = "#>")
+```
+
+
+## Introduction
+
+In order to use our data in downstream applications such as Truffle/Structure and the pedigree reconstruction, vcf files from each primate research center were combined into one file (for faster data annotation - `bcftools merge` was used). That combined file is named `all_nprcs.vcf.gz`. The next step was to remove unneded annotation from the files. This step was completed using bcftools.
+
+## Principal Components Analysis via Plink
+
+
+## Results
+
+
+## Discussion
+
+There are some limitations and notable takeaways too.
+
+## Questions
+
+- Are there Tulane animals or sequences currently not on mGAP?
+
+No.
+
