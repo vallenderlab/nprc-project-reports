@@ -1,3 +1,5 @@
+# This analysis script uses data generated from vcf file while running plink.
+#
 library(tidyverse)
 library(gglabeller)
 library(ggrepel)

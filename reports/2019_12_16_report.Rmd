@@ -16,17 +16,33 @@ In order to use our data in downstream applications such as Truffle/Structure an
 
 ## Principal Components Analysis via Plink
 
+Principal components analysis can be performed using a vcf file (`all_nprcs_rminfo_wgs.vcf.gz`) and the [plink]() software package.
+
+### Code Example
+
+```
+MGAPDIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/mGAP
+VCF=${MGAPDIR}/all_nprcs_rminfo_wgs.vcf.gz
+OUTDIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/results/plink_pca
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+rm -rf $OUTDIR
+mkdir $OUTDIR
+
+plink --vcf $VCF --pca 20 'tabs' --out $OUTDIR/all_nprcs_wgs_pca --allow-extra-chr
+```
 
 ## Results
+
+1. Some of the animals (14) from the CNPRC are clustering. That’s about 20% of the animals at that center. There doesn’t seem to be anything bizarre about the read counts or geographic origin. There are more females in that group though. 
+
+2. The hybrid animals have a high amount of variance (m00488, m00881, m00814) and the first two I mentioned may be worth removing from our dataset as they are outliers.
+
+3.	There are 3 TNPRC males that are extreme outliers that may need to be removed.
 
 
 ## Discussion
 
-There are some limitations and notable takeaways too.
-
-## Questions
-
-- Are there Tulane animals or sequences currently not on mGAP?
-
-No.
-
+Per Dr. Vallender, the likely reason for the outliers in the initial PCA analysis is that the samples are of Chinese origin (even if the metadata suggests otherwise).
