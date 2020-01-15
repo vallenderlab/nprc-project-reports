@@ -1,0 +1,51 @@
+---
+title: "NPRC Project - Plink PCA"
+author: "Shaurita Hutchins"
+date: "`r Sys.Date()`"
+output: mizzourahmd::mizzou_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, comment = "#>")
+```
+
+
+## Introduction
+
+In order to use our data in downstream applications such as Truffle/Structure and the pedigree reconstruction, vcf files from each primate research center were combined into one file (for faster data annotation - `bcftools merge` was used). That combined file is named `all_nprcs.vcf.gz`. The next step was to remove unneded annotation from the files. This step was completed using bcftools.
+
+## Principal Components Analysis via Plink
+
+Principal components analysis can be performed using a vcf file (`all_nprcs_rminfo_wgs.vcf.gz`) and the [plink]() software package.
+
+### Code Example
+
+```
+MGAPDIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/mGAP
+VCF=${MGAPDIR}/all_nprcs_rminfo_wgs.vcf.gz
+OUTDIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/results/plink_pca
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+rm -rf $OUTDIR
+mkdir $OUTDIR
+
+plink --vcf $VCF --pca 20 'tabs' --out $OUTDIR/all_nprcs_wgs_pca --allow-extra-chr
+```
+
+## Initial Results & Discussion
+
+1. Some of the animals (14) from the CNPRC are clustering. That’s about 20% of the animals at that center. There doesn’t seem to be anything bizarre about the read counts or geographic origin. There are more females in that group though. 
+
+2. The hybrid animals have a high amount of variance (m00488, m00881, m00814) and the first two I mentioned may be worth removing from our dataset as they are outliers.
+
+3.	There are 3 TNPRC males that are extreme outliers that may need to be removed.
+
+Per Dr. Vallender, the likely reason for the outliers in the initial PCA analysis is that the samples are of Chinese origin (even if the metadata suggests otherwise).
+
+## Removing Outliers & Reanalyzing Data
+
+
+
+
