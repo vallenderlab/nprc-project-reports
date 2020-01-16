@@ -1,0 +1,121 @@
+---
+title: "NPRC Project - fastStructure"
+author: "Shaurita Hutchins"
+date: "`r Sys.Date()`"
+output: 
+  mizzourahmd::mizzou_document:
+    code_folding: "hide"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, comment = "#>")
+```
+
+## What is fastStructure?
+
+### Input Data
+
+fastStructure requires biallelic data and WGS only data. It also poses some complications in that the input for the program needs to be in a very specific format that is poorly documented. Also, given the computational intensiveness of fastStructure, the size of the resulting data file should be limited if possible.
+
+To prepare the vcf for fastStructure, only WGS, autosomal chromosomes, biallelic snps and indels, and a minor allele frequency of `>0.05` were used. 
+
+Initially, all WGS samples (both India and China) were included. Once China origin samples were identified, they were excluded.
+
+```{bash, eval=FALSE}
+DATA_DIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data
+
+INFILE=${DATA_DIR}/mGAP/all_nprcs_rminfo.vcf.gz
+OUTFILE=${DATA_DIR}/structure_input/all_auto_wgs_biallelic_maf05.vcf.gz
+CHROMOSOMES=chr01,chr02,chr03,chr04,chr05,chr06,chr07,chr08,chr09,chr10,chr11,
+chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chrUn,MT
+SAMPLES_FILE=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/metadata/wgs_ids.txt
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+# Biallelic, autosomes only, only wgs samples, maf > .05
+bcftools view $INFILE -r $CHROMOSOMES -S $SAMPLES_FILE -m2 -M2 -v snps,indels -i 'MAF>0.05' -O z -o $OUTFILE --threads 80
+
+bcftools index $OUTFILE --threads 80
+```
+
+In addition to preparing the vcf file, a file formatted for fastStructure must be created. Initially, this was being done using a perl script that was written by Dr. Vallender, but I have adapted (and am adapting) a python script (below) that works and will generate the input for fastStructure.
+
+```{python, eval=FALSE, python.reticulate=FALSE}
+#!/usr/bin/env python3
+from __future__ import print_function
+import argparse
+import sys
+import os
+import vcf  # pip install pyVCF
+
+
+def errprint(*args, **kwargs):
+    """print to stderr not stdout"""
+    print(*args, file=sys.stderr, **kwargs)
+
+
+# parser
+parser = argparse.ArgumentParser()  # add the parser
+parser.add_argument("--input", help="input VCF file")  # add the parser
+parser.add_argument(
+    "--output", help="output STRUCTURE DATA file")  # add the parser
+
+args = parser.parse_args()
+
+
+def write_structure_file(outfile, snps, genotype_dict):
+    print("Writing %s..." % outfile)
+    with open(outfile, "w") as output:
+        header = "#\t#\t#\t#\t#\t\Sample_ID"
+        output.write("\t".join(snps) + "\n")
+        for ind in genotype_dict.keys():
+            output.write("\t".join([ind]+genotype_dict[ind]) + "\n")
+    print("%s has been written." % outfile)
+
+
+def import_vcf(infile):
+
+    # open the vcf parser
+    input_vcf = vcf.Reader(filename=infile, compressed=True,
+                           prepend_chr="False", strict_whitespace=False)
+    print('%s has been imported.' % infile)
+
+    return input_vcf
+
+
+def parse(vcf_obj):
+    dict_alleles = {"0/0": "11", "0/1": "12",
+                    "1/0": "12", "1/1": "22", "./.": "-9"}
+    list_snps = []
+    nsites = 0
+    gen_dict = {ind: [] for ind in vcf_obj.samples}
+
+    # store all the genotypes and loci names
+    print("Creating genotype dictionary...")
+    for site in vcf_obj:
+        list_snps.append(site.CHROM + "_" + str(site.POS))
+        for i in range(len(gen_dict.keys())):
+            gen_dict[site.samples[i].sample].append(
+                dict_alleles[site.samples[i]["GT"]])
+
+    return list_snps, gen_dict
+
+
+if __name__ == '__main__':
+    vcf = import_vcf(infile=args.input)
+
+    snps, genes = parse(vcf_obj=vcf)
+
+    write_structure_file(outfile=args.output,
+                         snps=snps, genotype_dict=genes)
+
+```
+
+Both scripts are located in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project/src/fast_structure`. The output is located in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/structure_input`.
+
+### Running fastStructure
+
+### Results
+
+We used the R package, [pophelper](), to help us visualize our data.

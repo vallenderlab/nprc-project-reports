@@ -51,7 +51,7 @@ After unnecessary information (`INFO/ID`) was removed, the file shrunk by `6 GB`
 Based on Tulane's paper on pedigree reconstruction, Chinese-origin animals and only WGS data should be included in later analyses. Also, according to [Sasha Kusev](https://github.com/gusevlab/germline/issues/5), the creator of `germline`, our data should be biallelic. That information isn't present in the current literature, but it's not a shocking revelation.
 
 
-160 of our samples were exome only samples across the data sets. That means that 578 samples have at least their whole genome sequenced.
+In total, 523 of our samples were verified WGS. 510 of those samples were India origin. Those samples were used for our data analysis.
 
 ```{bash, eval=FALSE}
 # Set directory variables
@@ -135,7 +135,9 @@ There are two data files available for truffle: `all_nprcs_rminfo_autosomal_wgs_
 
 fastStructure poses some complications in that the input for the program needs to be in a very specific format that is poorly documented. Also, given the computational intensiveness of fastStructure, the size of the resulting data file should be limited if possible.
 
-To prepare the vcf for fastStructure, only WGS, Indian, autosomal chromosomes, biallelic snps and indels, and a minor allele frequency of `>0.05` were used.
+To prepare the vcf for fastStructure, only WGS, autosomal chromosomes, biallelic snps and indels, and a minor allele frequency of `>0.05` were used. 
+
+Initially, all WGS samples (both India and China) were included. Once China origin samples were identified, they were excluded.
 
 ```{bash, eval=FALSE}
 DATA_DIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data
@@ -144,7 +146,7 @@ INFILE=${DATA_DIR}/mGAP/all_nprcs_rminfo.vcf.gz
 OUTFILE=${DATA_DIR}/structure_input/all_auto_wgs_biallelic_maf05.vcf.gz
 CHROMOSOMES=chr01,chr02,chr03,chr04,chr05,chr06,chr07,chr08,chr09,chr10,chr11,
 chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chrUn,MT
-SAMPLES_FILE=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/metadata/wgs_india_ids.txt
+SAMPLES_FILE=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/metadata/wgs_ids.txt
 
 module use /ddn/home3/vallender/software/module_files
 module load nprc_project

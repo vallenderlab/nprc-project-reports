@@ -20,7 +20,7 @@ Principal components analysis can be performed using a vcf file (`all_nprcs_rmin
 
 ### Code Example
 
-```
+```{bash, eval=FALSE}
 MGAPDIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/mGAP
 VCF=${MGAPDIR}/all_nprcs_rminfo_wgs.vcf.gz
 OUTDIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/results/plink_pca
