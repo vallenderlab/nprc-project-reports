@@ -25,13 +25,11 @@ DATA_DIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data
 
 INFILE=${DATA_DIR}/mGAP/all_nprcs_rminfo.vcf.gz
 OUTFILE=${DATA_DIR}/truffle_input/all_nprcs_rminfo_autosomal_wgs_biallelic_mt.vcf.gz
-CHROMOSOMES=chr01,chr02,chr03,chr04,chr05,chr06,chr07,chr08,chr09,chr10,chr11,
-chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chrUn,MT
-SAMPLES_FILE=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/metadata/wgs_indian_ids.txt
+CHROMOSOMES=chr01,chr02,chr03,chr04,chr05,chr06,chr07,chr08,chr09,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,MT
+SAMPLES_FILE=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/metadata/wgs_ids.txt
 
 module use /ddn/home3/vallender/software/module_files
 module load nprc_project
-
 
 bcftools view $INFILE -r $CHROMOSOMES -S $SAMPLES_FILE -O z -o $OUTFILE -m2 -M2 -v snps,indels --threads 80
 
@@ -45,6 +43,35 @@ There are two data files available for truffle: `all_nprcs_rminfo_autosomal_wgs_
 
 ### Running Truffle
 
+```{bash, eval=FALSE}
+#!/bin/bash
+# ------------------------------------------------------------------
+# [Vallender Lab] Truffle Relationship Estimation
+#          Run truffle analysis on a vcf of all nprcs that's normalized.
+#          VCF file with only wgs, biallelic, and MT variants.
+#PBS -N truffle
+#PBS -l select=15:ncpus=1:mem=4000mb
+#PBS -l place=free
+#PBS -j oe
+#PBS -o logs
+#PBS -e logs
+
+VAR=all_nprcs_rminfo_autosomal_wgs_biallelic_mt
+RESULTSDIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/results/truffle/relationship_estimation/${VAR}
+VCF=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data/truffle_input/${VAR}.vcf.gz
+
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+mkdir $RESULTSDIR
+
+truffle --vcf $VCF --cpu 10 --mindist 5000 --nofiltering --out $RESULTSDIR/$VAR
+
+chmod 0770 $RESULTSDIR/*
+chmod 0770 $RESULTSDIR
+
+```
+
 ### Results
 
-We used the R package, [pophelper](), to help us visualize our data.
+We used the R package, [pophelper](https://github.com/royfrancis/pophelper), to help us visualize our data.
