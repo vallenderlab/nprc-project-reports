@@ -1,6 +1,6 @@
 ---
 title: "NPRC Project - fastStructure"
-author: "Shaurita Hutchins"
+author: "Shaurita Hutchins & Robert Gilmore"
 date: "`r Sys.Date()`"
 output: 
   mizzourahmd::mizzou_document:
@@ -13,13 +13,15 @@ knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, comment = "#>")
 
 ## What is fastStructure?
 
+fastStructure is an algorithm for inferring population structure from large SNP genotype data. It is based on a variational Bayesian framework for posterior inference and was initially written in Python2.x. We have converted fastStructure to Python 3 (can be found in [this repo](https://github.com/vallenderlab/fastStructure)). 
+
 ### Input Data
 
 fastStructure requires biallelic data and WGS only data. It also poses some complications in that the input for the program needs to be in a very specific format that is poorly documented. Also, given the computational intensiveness of fastStructure, the size of the resulting data file should be limited if possible.
 
 To prepare the vcf for fastStructure, only WGS, autosomal chromosomes, biallelic snps and indels, and a minor allele frequency of `>0.05` were used. 
 
-Initially, all WGS samples (both India and China) were included. Once China origin samples were identified, they were excluded.
+In this analysis, all WGS samples (both India and China) were included.
 
 ```{bash, eval=FALSE}
 DATA_DIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data
@@ -39,7 +41,7 @@ bcftools view $INFILE -r $CHROMOSOMES -S $SAMPLES_FILE -m2 -M2 -v snps,indels -i
 bcftools index $OUTFILE --threads 80
 ```
 
-In addition to preparing the vcf file, a file formatted for fastStructure must be created. Initially, this was being done using a perl script that was written by Dr. Vallender, but I have adapted (and am adapting) a python script (below) that works and will generate the input for fastStructure.
+In addition to prepare the vcf file, a file formatted for fastStructure must be created. Initially, this was being done using a perl script that was written by Dr. Vallender, but I have adapted (and am adapting) a python script (below) that works and will generate the input for fastStructure. The output file is `all_auto_wgs_all_biallelic_maf05.str`.
 
 ```{python, eval=FALSE, python.reticulate=FALSE}
 #!/usr/bin/env python3
@@ -48,11 +50,6 @@ import argparse
 import sys
 import os
 import vcf  # pip install pyVCF
-
-
-def errprint(*args, **kwargs):
-    """print to stderr not stdout"""
-    print(*args, file=sys.stderr, **kwargs)
 
 
 # parser
@@ -116,6 +113,110 @@ Both scripts are located in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project
 
 ### Running fastStructure
 
+Running fastStructure was quite a journey. With this dataset (all sites included), we needed to use catalpa and at least 225 GB of RAM. It took both the k1 and k2 population sizes about 16 hours to complete.  It took other datasets (because of the high number of iterations) over 30 hours to complete.
+
+```{bash, eval=FALSE}
+#!/bin/bash
+# ------------------------------------------------------------------
+# [Vallender Lab] wgs_all
+#          Run fast structure on all WGS samples.
+#          ❗ This should be run on catalpa. ❗
+#PBS -N faststruct
+#PBS -l select=1:ncpus=1:mem=225gb
+#PBS -l place=free
+#PBS -j oe
+#PBS -o logs/
+#PBS -e logs/
+
+FILENAME=all_auto_wgs_all_biallelic_maf05
+NPRC_PROJECT=/ddn/home3/vallender/projects/NPRC_Pedigree_Project
+INFILE=${NPRC_PROJECT}/data/structure_input/${FILENAME}
+OUTDIR=${NPRC_PROJECT}/results/fast_structure/${FILENAME}
+OUTFILE=${OUTDIR}/${FILENAME}
+DISTRUCT_OUT=${OUTDIR}/${FILENAME}_k${K}_distruct.svg
+
+FAST_STRUCT_DIR=/ddn/home3/vallender/software/fastStructure
+
+# Load module files
+module use /ddn/home3/vallender/software/module_files
+module load nprc_project
+
+# Export necessary libraries
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/ddn/home3/vallender/software/gsl-2.4/lib
+export CFLAGS="-I/ddn/home3/vallender/software/gsl-2.4/include"
+export LDFLAGS="-L/ddn/home3/vallender/software/gsl-2.4/lib"
+
+mkdir ${OUTDIR}
+
+# Run fastStructure
+python ${FAST_STRUCT_DIR}/structure.py -K ${K} --input=${INFILE} --output=${OUTFILE} --format=str --full --seed=100
+
+# Visualizing admixture proportions
+python ${FAST_STRUCT_DIR}/distruct.py -K ${K} --input=${OUTFILE} --output=${DISTRUCT_OUT}
+```
+
 ### Results
 
-We used the R package, [pophelper](), to help us visualize our data.
+We used the R package, [pophelper](https://github.com/royfrancis/pophelper), to help us visualize our data.
+
+This initial analysis was designed to see China vs India origin samples.
+
+
+```{r, eval=FALSE}
+devtools::install_github('royfrancis/pophelper')
+library(pophelper)
+
+sfiles <- list.files(path=".", full.names=T)
+slist <- readQ(files=sfiles)
+tr1 <- tabulateQ(slist)
+sr1 <- summariseQ(tr1)
+slist1 <- alignK(slist)
+md <- readr::read_csv("metadata.csv")
+md <- data.frame(md)
+for (i in 1:length(slist1)) {
+  rownames(slist1[[i]]) <- md$mgap_id
+  print(i)
+}
+
+smp_grp <- md[,1,drop=FALSE]
+pmc_grp <- md[,2,drop=FALSE]
+rownames(pmc_grp) <- md$mgap_id
+go_grp <- md[,4,drop=FALSE]
+rownames(go_grp) <- md$mgap_id
+gen_grp <- md[,3,drop=FALSE]
+rownames(gen_grp) <- md$mgap_id
+
+plotQMultiline(slist1, returnplot=F, exportplot=T, sortind="all", spl=150, lpp=5, useindlab=T, indlabspacer=5, indlabsize=7, indlabangle=45, indlabvjust=1, grplab=pmc_grp, ordergrp=T, exportpath="~/fastStructure/", height=42, width=30, units="cm")
+
+plotQ(slist, returnplot=F, exportplot=T, grplab=pmc_grp, sortind="all", ordergrp=T, outputfilename=c("pmc1", "pmc2", "pmc3", "pmc4", "pmc5", "pmc6", "pmc7"))
+plotQ(slist, returnplot=F, exportplot=T, grplab=go_grp, sortind="all", ordergrp=T, outputfilename=c("go1", "go2", "go3", "go4", "go5", "go6", "go7"))
+plotQ(slist, returnplot=F, exportplot=T, grplab=gen_grp, sortind="all", ordergrp=T, outputfilename=c("sex1", "sex2", "sex3", "sex4", "sex5", "sex6", "sex7"))
+
+```
+
+The script is located in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project/results/fast_structure/all_auto_wgs_all_biallelic_maf05/pophelper_analysis`. 
+
+Below are a few figures that were generated.
+
+#### k2 with "known" geographic origin
+
+![k2-go](../data/fastStructure/go2.png)
+
+#### k3 with "known" geographic origin
+
+![k3-go](../data/fastStructure/go3.png)
+
+#### k2 by primate research center
+
+![k2-pmc](../data/fastStructure/pmc2.png)
+
+#### k3 by primate research center
+
+![k3-pmc](../data/fastStructure/pmc3.png)
+
+Additional figures are located on the MCSR in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project/results/fast_structure/all_auto_wgs_all_biallelic_maf05/pophelper_analysis`.
+
+
+### Discussion
+
+Once the k gets to 3, fastStructure seems to struggle more with creating further populations. Additionally, the bigger the k, the longer the analysis. We have yet to run fastStructure's "choosek" script which will give us more knowledge on how many populations we have in this data. What we can see, however, is that the k2 population seems to be a split between China and India origin rhesus macaques. From this data, we can take a look at our PCA results and the mgap id's of the animals fitting a "China origin profile" in fastStructure to elimate those animals from downstream analyes.
