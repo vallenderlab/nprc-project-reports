@@ -21,7 +21,7 @@ fastStructure requires biallelic data and WGS only data. It also poses some comp
 
 To prepare the vcf for fastStructure, only WGS, autosomal chromosomes, biallelic snps and indels, and a minor allele frequency of `>0.05` were used. 
 
-In this analysis, all WGS samples (both India and China) were included.
+In this analysis, all WGS samples (India, China, and Hybrid) were included.
 
 ```{bash, eval=FALSE}
 DATA_DIR=/ddn/home3/vallender/projects/NPRC_Pedigree_Project/data
@@ -41,7 +41,7 @@ bcftools view $INFILE -r $CHROMOSOMES -S $SAMPLES_FILE -m2 -M2 -v snps,indels -i
 bcftools index $OUTFILE --threads 80
 ```
 
-In addition to prepare the vcf file, a file formatted for fastStructure must be created. Initially, this was being done using a perl script that was written by Dr. Vallender, but I have adapted (and am adapting) a python script (below) that works and will generate the input for fastStructure. The output file is `all_auto_wgs_all_biallelic_maf05.str`.
+In addition to preparing the vcf file, a file formatted for fastStructure must be created. Initially, this was being done using a perl script that was written by Dr. Vallender, but I have adapted (and am adapting) a python script (below) that works and will generate the input for fastStructure. The output file is `all_auto_wgs_all_biallelic_maf05.str`.
 
 ```{python, eval=FALSE, python.reticulate=FALSE}
 #!/usr/bin/env python3
@@ -72,7 +72,6 @@ def write_structure_file(outfile, snps, genotype_dict):
 
 
 def import_vcf(infile):
-
     # open the vcf parser
     input_vcf = vcf.Reader(filename=infile, compressed=True,
                            prepend_chr="False", strict_whitespace=False)
@@ -113,7 +112,7 @@ Both scripts are located in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project
 
 ### Running fastStructure
 
-Running fastStructure was quite a journey. With this dataset (all sites included), we needed to use catalpa and at least 225 GB of RAM. It took both the k1 and k2 population sizes about 16 hours to complete.  It took other datasets (because of the high number of iterations) over 30 hours to complete.
+Running fastStructure was quite a journey. With this dataset (all sites included), we needed to use catalpa and at least 225 GB of RAM. It took both the k1 and k2 population sizes about 16 hours to complete.  It took other datasets (because of the high number of iterations) over 30 hours to complete. The k10 run needed over 100 hours to complete which took roughly 10 gives given only so much RAM can be occupied by one user on catalpa.
 
 ```{bash, eval=FALSE}
 #!/bin/bash
@@ -159,8 +158,21 @@ python ${FAST_STRUCT_DIR}/distruct.py -K ${K} --input=${OUTFILE} --output=${DIST
 
 We used the R package, [pophelper](https://github.com/royfrancis/pophelper), to help us visualize our data.
 
+We also used plink's [PCA](https://www.cog-genomics.org/plink/1.9/strat) function to see if the data clustered as well.
+
 This initial analysis was designed to see China vs India origin samples.
 
+
+#### Plink PCA
+
+Compared to the initial PCA performed on all WGS samples without any filtering of the minor allele frequency, this analysis (with filtering the snps using a maf `>0.05`) seems to more clearly separate India and China origin animals.
+
+![pca](../data/fastStructure/initial_analysis/pca.png)
+
+
+#### Pophelper Analysis
+
+Below is the script used with pophelper.
 
 ```{r, eval=FALSE}
 devtools::install_github('royfrancis/pophelper')
@@ -198,25 +210,30 @@ The script is located in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project/re
 
 Below are a few figures that were generated.
 
-#### k2 with "known" geographic origin
+![k2 with "known" geographic origin](../data/fastStructure/initial_analysis/go2.png)
 
-![k2-go](../data/fastStructure/go2.png)
 
-#### k3 with "known" geographic origin
+![k3 with "known" geographic origin](../data/fastStructure/initial_analysis/go3.png)
 
-![k3-go](../data/fastStructure/go3.png)
 
-#### k2 by primate research center
+![k2 by primate research center](../data/fastStructure/initial_analysis/pmc2.png)
 
-![k2-pmc](../data/fastStructure/pmc2.png)
 
-#### k3 by primate research center
+![k3 by primate research center](../data/fastStructure/initial_analysis/pmc3.png)
 
-![k3-pmc](../data/fastStructure/pmc3.png)
-
-Additional figures are located on the MCSR in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project/results/fast_structure/all_auto_wgs_all_biallelic_maf05/pophelper_analysis`.
+Additional figures are located on the MCSR in `/ddn/home3/vallender/projects/NPRC_Pedigree_Project/results/fast_structure/all_auto_wgs_all_biallelic_maf05/pophelper_analysis` on the MCSR.
 
 
 ### Discussion
 
 Once the k gets to 3, fastStructure seems to struggle more with creating further populations. Additionally, the bigger the k, the longer the analysis. We have yet to run fastStructure's "choosek" script which will give us more knowledge on how many populations we have in this data. What we can see, however, is that the k2 population seems to be a split between China and India origin rhesus macaques. From this data, we can take a look at our PCA results and the mgap id's of the animals fitting a "China origin profile" in fastStructure to elimate those animals from downstream analyes.
+
+
+#### Choosing Model Complexity
+
+Based on [this discussion](https://groups.google.com/forum/#!topic/structure-software/s_rc_ueq6CU), the range of k should be 2 to 7 which ultimately means our data could be explained by any of those k values. The output of [chooseK](https://github.com/rajanil/fastStructure/blob/master/chooseK.py), a script part of fastStructure that parses through the output of the runs (k=1 to k=10) and provides a reasonable range of values for the model complexity appropriate for this dataset, is below.
+
+```
+Model complexity that maximizes marginal likelihood = 2
+Model components used to explain structure in data = 7
+```
