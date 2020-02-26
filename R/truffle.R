@@ -29,5 +29,5 @@ makeClusterMatrix <- function(data, values, diagonal = 0) {
     return(m)
 }
 
-wgs_mt_matrix <- makeClusterMatrix(data = wgs_mt, values = )
-wgs_both_matrix <- makeClusterMatrix(data = wgs_both, values = )
+#wgs_mt_matrix <- makeClusterMatrix(data = wgs_mt, values = )
+#wgs_both_matrix <- makeClusterMatrix(data = wgs_both, values = )
